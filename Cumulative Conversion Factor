@@ -1,0 +1,68 @@
+#How obtain the Cumulative Conversion Factor (CCF) of the Trends_FactorConversion.xlsx
+
+
+library(readxl)
+Trends_FactorConversionFW <- read_excel("~/Dropbox/Tesis Pilar Malagon. Market value/Trends_FactorConversion.xlsx", 
+                                      sheet = "DELANTEROS")
+View(Trends_FactorConversion)
+
+FL_FORWARD<-Trends_FactorConversionFW[ ,2:31]*1
+
+SL_FORWARD<-Trends_FactorConversionFW[ ,32:223]*0.04
+
+TL_FORWARD<-Trends_FactorConversionFW[ ,224:389]*0.0016
+
+
+
+Trends_FactorConversionMD <- read_excel("~/Dropbox/Tesis Pilar Malagon. Market value/Trends_FactorConversion.xlsx", 
+                                      sheet = "CENTROCAMPISTAS")
+
+
+REFERENCE_MIDFIELDER<-Trends_FactorConversionMD[ ,2]*1
+
+FL_MIDFIELDER<-Trends_FactorConversionMD[ ,3:89]*0.15
+
+SL_MIDFIELDER<-Trends_FactorConversionMD[ ,90:423]*0.0045
+
+TL_MIDFIELDER<-Trends_FactorConversionMD[ ,424:446]*0.000135
+
+
+
+
+
+Trends_FactorConversionDF <- read_excel("~/Dropbox/Tesis Pilar Malagon. Market value/Trends_FactorConversion.xlsx", 
+                                        sheet = "DEFENSAS")
+
+REFERENCE_DEFENDER<-Trends_FactorConversionDF[ ,2]*1
+
+FL_DEFENDER<-Trends_FactorConversionDF[ ,3:85]*0.14
+
+SL_DEFENDER<-Trends_FactorConversionDF[ ,86:381]*0.0112
+
+TL_DEFENDER<-Trends_FactorConversionDF[ ,382:598]*0.00108
+
+
+
+Factor_Conversin<-cbind(FL_FORWARD,SL_FORWARD,TL_FORWARD,
+                    REFERENCE_MIDFIELDER,FL_MIDFIELDER,SL_MIDFIELDER,TL_MIDFIELDER,
+                    REFERENCE_DEFENDER,FL_DEFENDER,SL_DEFENDER,TL_DEFENDER)
+
+Factor_Conversion<-t(Factor_Conversin)
+
+
+
+
+
+write.csv(Factor_Conversion,"Factor_Conversion.csv")
+
+
+
+library(FactoMineR)
+pca_trend<-PCA(Trends_FactorConversion[,-1])
+CP1<-pca_trend$ind$coord[,1]
+#calcular la indicadores a traves de los valores de Trends_FactorConversion
+media<-apply(Trends_FactorConversion[, 5:dim(Trends_FactorConversion)[2]], 1, mean)
+varianza<-apply(Trends_FactorConversion[, 5:dim(Trends_FactorConversion)[2]], 1, var)
+minimo<-apply(Trends_FactorConversion[, 5:dim(Trends_FactorConversion)[2]], 1, min)
+maximo<-apply(Trends_FactorConversion[, 5:dim(Trends_FactorConversion)[2]], 1, max)
+mediana<-apply(Trends_FactorConversion[, 5:dim(Trends_FactorConversion)[2]], 1, median)
