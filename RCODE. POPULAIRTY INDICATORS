@@ -1,0 +1,395 @@
+library(readxl)
+valor_mercado <-  Datos_imputacion_valormercado_2.xlsx"
+Trends_FactorConversion <- read_excel("Trends_FactorConversion.xlsx", sheet = "REF")
+GT_nonormalizado <- GoogleTrends.xlsx"
+
+library(FactoMineR)
+pca_trend<-PCA(Trends_FactorConversion[,-1])
+CP1.ref<-pca_trend$ind$coord[,1]
+#calcular la indicadores a traves de los valores de Trends
+CP1.ref<-pca_trend$ind$coord[,1]
+mean.ref<-apply(Trends_FactorConversion[, 2:dim(Trends_FactorConversion)[2]], 1, mean)
+standard_deviation.ref<-apply(Trends_FactorConversion[, 2:dim(Trends_FactorConversion)[2]], 1, sd)
+minimum.ref<-apply(Trends_FactorConversion[, 2:dim(Trends_FactorConversion)[2]], 1, min)
+maximum.ref<-apply(Trends_FactorConversion[, 2:dim(Trends_FactorConversion)[2]], 1, max)
+median.ref<-apply(Trends_FactorConversion[, 2:dim(Trends_FactorConversion)[2]], 1, median)
+
+
+#Para comparar si es necesario utilizar jugadores referencia para obtener GT
+pca_GTnon<-PCA(GT_nonormalizado[,-1])
+
+CP1.GT<-pca_GTnon$ind$coord[,1]
+mean.GT<-apply(GT_nonormalizado[, 2:dim(GT_nonormalizado)[2]], 1, mean)
+standard_deviation.GT<-apply(GT_nonormalizado[, 2:dim(GT_nonormalizado)[2]], 1, sd)
+minimum.GT<-apply(GT_nonormalizado[, 2:dim(GT_nonormalizado)[2]], 1, min)
+maximum.GT<-apply(GT_nonormalizado[, 2:dim(GT_nonormalizado)[2]], 1, max)
+median.GT<-apply(GT_nonormalizado[, 2:dim(GT_nonormalizado)[2]], 1, median)
+
+
+
+
+datos<- valor_mercado[,c(3,5:10,20:dim(valor_mercado)[2])]
+datos$mean.ref<-mean.ref
+datos$standard_deviation.ref<-standard_deviation.ref
+datos$minimum.ref<-minimum.ref
+datos$maximum.ref<-maximum.ref
+datos$median.ref<- median.ref
+datos$CP1.ref<-CP1.ref
+
+
+datos$mean.GT<-mean.GT
+#datos$standard_deviation.GT<-standard_deviation.GT
+#datos$minimum.GT<-minimum.GT
+#datos$maximum.GT<-maximum.GT
+#datos$median.GT<- median.GT
+#datos$CP1.GT<-CP1.GT
+
+
+Countries <- Countries.xlsx"
+Countries$League<-as.factor(Countries$League)
+Countries$Continent<-as.factor(Countries$Continent)
+
+#datos<-datos_2
+
+##########Find vif_func.R on http://beckmw.wordpress.com/2013/02/05/collinearity-and-stepwise-vif-selection/
+source('vif_func.R')
+variables_vif<-vif_func(as.data.frame(datos[, -(6:7)]))
+variables<-as.data.frame(datos[, -(6:7)])# elimina la variable GT google trend sin ninguna mejora
+
+
+#Para eliminar el efecto supresor, entre el max y min con la desviación
+#estandard, y la correlación de 0.75 entre las variables, ponemos un 
+#VIF más estricto de 2.5
+
+datos2_mean<-variables[]-colMeans(variables[])[col(variables[])]
+datos3_mean<-datos2_mean
+
+
+datos2_mean<-cbind(datos2_mean,Countries[,c(3,5)])
+set.seed(123)
+test.df<-cbind(datos[, 6][1:193,],datos2_mean[1:193,]) #Players' transfer fees
+train.df<-cbind(datos[, 6][-(1:193),],datos2_mean[-(1:193),]) #Players market value.
+
+library(caret)
+miTRcontrol = trainControl("repeatedcv", number = 5, repeats = 5)
+
+
+################################
+############# LM #############
+###############################
+cor(minimum.ref,median.ref)
+#################################################
+############# BASELINE #############
+#################################################
+
+train_vif<-train.df[,c("Coste",variables_vif,"League","Continent")]
+test_vif<-test.df[,c("Coste",variables_vif,"League","Continent")]
+
+lm.train.1 <- train(Coste ~ ., data = train_vif[,-(22:25)], method = "lmStepAIC",
+                    family = "gaussian", direction = "both", 
+                    trControl = miTRcontrol, metric="RMSE",trace=F)
+
+summary(lm.train.1)
+
+#  minimum.ref                      ***
+#  median.ref                       ***
+#  standard_deviation.GT            ***
+#  median.GT                        ***
+
+RMSE.LM.1<-RMSE(pred = predict(lm.train.1, test_vif[,-(22:25)]), obs = test_vif$Coste)
+RMSE.LM.1
+#17.101.619 (NO Continet League)
+# 16476016 (Continet League)
+
+#################################################
+################ GTI (GT index) ################
+#################################################
+
+lm.train.2 <- train(Coste ~ ., data = train_vif[,-(22:24)], method = "lmStepAIC",
+                    family = "gaussian", direction = "both", 
+                    trControl = miTRcontrol, metric="RMSE",trace=F)
+
+summary(lm.train.2)
+
+#standard_deviation.GT                        ***
+#minimum.GT                         ***
+
+RMSE.LM.2<-RMSE(pred = predict(lm.train.2, test_vif[,-c(22:24)]), obs = test_vif$Coste)
+RMSE.LM.2
+# 17.101.619 (NO Continet League)
+# 16476016 (Continet League)
+
+#################################################
+############# VARIABLES .ref #############
+#################################################
+
+
+lm.train.3 <- train(Coste ~ ., data = train_vif[,-25], method = "lmStepAIC",
+                    family = "gaussian", direction = "both", 
+                    trControl = miTRcontrol, metric="RMSE",trace=F)
+
+summary(lm.train.3)
+
+#v                     ***
+#minimum.ref                        ***
+#median.ref                       ***
+
+RMSE.LM.3<-RMSE(pred = predict(lm.train.3, test_vif[,-25]), obs = test_vif$Coste)
+RMSE.LM.3
+# 16.231.400 (NO Continet League)
+# 15763270 (Continet League)
+
+################################
+############# RF #############
+###############################
+
+
+
+tunegrid <- expand.grid(.mtry = (1:30)) 
+
+#################################################
+############# GTI (GT index) #############
+#################################################
+
+rf.train.1<- train(Coste ~ ., data = train.df[,-(31:37)],importance=T,method="rf",
+                   tuneGrid = tunegrid,trControl = miTRcontrol)
+
+
+imp.rf.1<- varImp(rf.train.1)
+
+RMSE.RF.1<-RMSE(pred = predict(rf.train.1, test.df[,-(31:37)]), obs = test.df$Coste)
+RMSE.RF.1
+# 
+
+#################################################
+################ VARIABLES .GT ################
+#################################################
+
+rf.train.2<- train(Coste ~ ., data = train.df[,-(31:36)],importance=T,
+                   method="rf",
+                   tuneGrid = tunegrid,trControl = miTRcontrol)
+
+
+RMSE.RF.2<-RMSE(pred = predict(rf.train.2, test.df[,-(31:36)]), obs = test.df$Coste)
+RMSE.RF.2
+
+imp.rf.2<- varImp(rf.train.2)
+imp.rf.2
+
+as.data.frame(variables)
+
+imp.rf.2_2 <- as.data.frame(imp.rf.2$importance)
+
+
+variables_rf2 <- c("P","FT","H","Age","Ct","PT","ADA","TA","SI","F","YC","RC","Gls","S","SA","A","Cr","Dr",
+                   "PA","SPA","LPA","KP","PLO","PPA","DP","PP","FK" ,"C","GTI", "LaLiga", "Ligue 1", "Premier",
+                  "Serie A","Asia","Australia", "Europa","North America","South America")
+  
+
+
+imp.rf.2_2 <- cbind(variables_rf2,imp.rf.2_2)
+
+library(dplyr)
+setEPS()
+
+imp.rf.2_2  %>%
+  ggplot( aes(x=reorder(variables_rf2,Overall), y=Overall)) +
+  geom_bar(stat="identity", fill="deepskyblue4", width=.4) +
+  coord_flip() +
+  xlab("Variables") +
+  ylab("Contribution") +
+  theme_bw(base_size = 11)+
+  theme(axis.text = element_text(size = 11))
+
+
+ggsave("plot.eps")
+
+
+setEPS()
+
+ggsave(file="Fig88888.eps", device=cairo_ps)
+
+cairo_ps(filename='Fig2.eps', width=7, height=7)
+
+# naming the eps file
+postscript("Fig2.eps")
+# 16.585.745
+#16.415.902
+#################################################
+############# VARIABLES .ref #############
+#################################################
+
+rf.train.3<- train(Coste ~ ., data = train.df[,-37],importance=T,method="rf",
+                   trControl = miTRcontrol)
+
+RMSE.RF.3<-RMSE(pred = predict(rf.train.3, test.df[,-37]), obs = test.df$Coste)
+RMSE.RF.3
+
+imp.rf.3<- varImp(rf.train.3)
+imp.rf.3
+
+imp.rf.3_3 <- as.data.frame(imp.rf.3$importance)
+
+
+variables_rf3 <- c("P","FT","H","Age","Ct","PT","ADA","TA","SI","F","YC","RC","Gls","S","SA","A","Cr","Dr",
+                   "PA","SPA","LPA","KP","PLO","PPA","DP","PP","FK" ,"C","Mn","SD","Min","Max","Mdn","PC1", 
+                   "LaLiga", "Ligue 1", "Premier","Serie A","Asia","Australia", "Europa","North America","South America")
+
+
+imp.rf.3_3 <- cbind(variables_rf3,imp.rf.3_3)
+
+
+imp.rf.3_3  %>%
+  ggplot( aes(x=reorder(variables_rf3,Overall), y=Overall)) +
+  geom_bar(stat="identity", fill="deepskyblue4", width=.4) +
+  coord_flip() +
+  xlab("Variables") +
+  ylab("Contribution") +
+  theme_bw(base_size = 11)+
+  theme(axis.text = element_text(size = 11))
+
+ggsave("Fig3.eps")
+
+#setEPS()
+
+
+#12.306.056
+#11902162
+
+################################
+############# GBM #############
+###############################
+
+gbmGrid <- expand.grid(      #grid PRUEBA
+  shrinkage = c(0.01,0.05,0.1),
+  n.trees = (1:50)*50,
+  interaction.depth = c(1, 5,7, 9),
+  n.minobsinnode = c(1,3,5,7,9)
+)
+
+#################################################
+############# GTI (GT index) #############
+#################################################
+
+gbm.train.1<- train(Coste ~ ., data = train.df[,-(31:37)],method="gbm",
+                    tuneGrid = gbmGrid,trControl = miTRcontrol,
+                    verbose=F)
+
+
+#n.trees = 1900, interaction.depth = 9, shrinkage = 0.01 and n.minobsinnode = 1.
+gbm.summary<-gbm.train.1[["results"]]
+
+imp.GBM.1<- summary(gbm.train.1)
+
+RMSE.GBM.1<-RMSE(pred = predict(gbm.train.1, test.df[,-(31:37)]), obs = test.df$Coste)
+RMSE.GBM.1
+#
+#16.768.295
+#################################################
+################ VARIABLES .GT ################
+#################################################
+
+gbm.train.2<- train(Coste ~ ., data = train.df[,-(31:36)],method="gbm",
+                    tuneGrid = gbmGrid,trControl = miTRcontrol,
+                    verbose=F)
+
+# n.trees = 2350, interaction.depth = 7, shrinkage = 0.01 and n.minobsinnode = 3.
+gbm.summary<-gbm.train.2[["results"]]
+
+
+RMSE.GBM.2<-RMSE(pred = predict(gbm.train.2, test.df[,-(31:36)]), obs = test.df$Coste)# 12083185
+RMSE.GBM.2
+
+imp.GBM.2<- summary(gbm.train.2)
+
+imp.GBM.2_2 <- as.data.frame(imp.GBM.2)
+
+variables_2_2 <- c("Gls","S","DP","Ct","PT","PA","Age","Premier","SPA","PLO","Dr","KP", "PPA","A","F","SA",
+                   "LPA","PP","GTI","ADA","YC","Cr","FK","H","TA","C","SI","Ligue 1","LaLiga", "RC","South America",
+                   "Serie A","Europa","FT","P","North America",  "Asia","Australia" )
+                  
+
+imp.GBM.2_2 <- cbind(variables_2_2,imp.GBM.2_2)
+
+imp.GBM.2_2  %>%
+  ggplot( aes(x=reorder(variables_2_2,rel.inf), y=rel.inf)) +
+  geom_bar(stat="identity", fill="deepskyblue4", width=.4) +
+  coord_flip() +
+  xlab("Variables") +
+  ylab("Contribution") +
+  theme_bw(base_size = 11)+
+  theme(axis.text = element_text(size = 11))
+
+ggsave("Fig4.eps")
+
+
+# 18.139.202
+#################################################
+############# VARIABLES .ref #############
+#################################################
+
+gbm.train.3<- train(Coste ~ ., data = train.df[,-37],method="gbm",
+                    tuneGrid = gbmGrid,trControl = miTRcontrol,
+                    verbose=F)
+
+# n.trees = 1950, interaction.depth = 5, shrinkage = 0.01 and n.minobsinnode = 3.
+gbm.summary<-gbm.train.3[["results"]]
+
+
+imp.GBM.3<- summary(gbm.train.3)
+
+
+RMSE.GBM.3<-RMSE(pred = predict(gbm.train.3, test.df[,-37]), obs = test.df$Coste)
+RMSE.GBM.3
+#11823694
+#11657432
+#11554913
+
+tabla.resumen<-data.frame(
+  Modelo=c("LM","RF","GBM"), 
+  
+  GT_REF=c(RMSE.LM.1,RMSE.RF.1,RMSE.GBM.1), 
+  
+  GT=c(RMSE.LM.2,RMSE.RF.2,RMSE.GBM.2),
+  
+  REF= c(RMSE.LM.3,RMSE.RF.3,RMSE.GBM.3)
+)
+
+tabla.resumen
+
+
+#IMPROTANCE
+library(dplyr)
+library(ggplot2)
+
+as.data.frame(variables)
+
+imp.GBM.3_2 <- as.data.frame(imp.GBM.3)
+
+
+
+#variables_2 <- c("Minimum.REF","Age","Median.REF","Goals","PlayingTime","Contract","DeepPasses","Dribbles",
+#                 "Shots","Mean.REF","StandardDeviation.REF","Assists","YellowCards","KeyPasses","PassingAccuracy",
+#                 "ShotsAccuracy","Fouls","PassesLastOpponent", "PC1.REF","LongPassesAccuracy","Heigh","ShortPassesAccuracy",
+#                "PassesPenalty","ArielDuelsAccuracy","TackleAccuracy","Crosses","FreeKicks","ProgressivePasses",
+#                "Corners","ShotsIntercepted","Maximum.REF","Footedness","RedCards","Position")
+
+
+variables_2 <- c("Min","Age","Mdn","PT","Gls","DP","Ct","S","SA","Dr","Mn","PA","A","YC","F","SD","PLO","KP","ADA",
+                 "LPA","TA","PC1","C","SPA","PPA","H","Cr","Max","PP","SI","Premier","FK","Ligue 1","Serie A",
+                 "LaLiga","Asia","RC","P","FT","North America","Europa","South America","Australia" )
+
+
+imp.GBM.3_2 <- cbind(variables_2,imp.GBM.3)
+
+
+Fig1<-imp.GBM.3_2  %>%
+  ggplot( aes(x=reorder(variables_2,rel.inf), y=rel.inf)) +
+  geom_bar(stat="identity", fill="deepskyblue4", width=.4) +
+  coord_flip() +
+  xlab("Variables") +
+  ylab("Contribution") +theme_bw(base_size = 11)+
+  theme(axis.text = element_text(size = 11))
+
+
+ggsave("Fig1.eps")
