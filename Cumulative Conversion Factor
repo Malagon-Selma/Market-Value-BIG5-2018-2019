@@ -2,7 +2,7 @@
 
 
 library(readxl)
-Trends_FactorConversionFW <- read_excel("~/Dropbox/Tesis Pilar Malagon. Market value/Trends_FactorConversion.xlsx", 
+Trends_FactorConversionFW <- read_excel("~Market value/Trends_FactorConversion.xlsx", 
                                       sheet = "DELANTEROS")
 View(Trends_FactorConversion)
 
@@ -14,7 +14,7 @@ TL_FORWARD<-Trends_FactorConversionFW[ ,224:389]*0.0016
 
 
 
-Trends_FactorConversionMD <- read_excel("~/Dropbox/Tesis Pilar Malagon. Market value/Trends_FactorConversion.xlsx", 
+Trends_FactorConversionMD <- read_excel("~/Market value/Trends_FactorConversion.xlsx", 
                                       sheet = "CENTROCAMPISTAS")
 
 
@@ -30,7 +30,7 @@ TL_MIDFIELDER<-Trends_FactorConversionMD[ ,424:446]*0.000135
 
 
 
-Trends_FactorConversionDF <- read_excel("~/Dropbox/Tesis Pilar Malagon. Market value/Trends_FactorConversion.xlsx", 
+Trends_FactorConversionDF <- read_excel("~/Market value/Trends_FactorConversion.xlsx", 
                                         sheet = "DEFENSAS")
 
 REFERENCE_DEFENDER<-Trends_FactorConversionDF[ ,2]*1
